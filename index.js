@@ -1,96 +1,89 @@
-const sumo = require('node-sumo')
-// const keypress  = require('keypress')
+const http = require('http')
+const https = require('https')
+const url = require('url')
+const fs = require('fs')
+const { StringDecoder } = require('string_decoder')
 
-const drone = sumo.createClient()
-
-
-const keypress = require('keypress');
-
-const stdin = process.stdin
-// make `process.stdin` begin emitting "keypress" events
-keypress(stdin);
+require('./lib/drone')
 
 
-// without this, we would only get streams once enter is pressed
-stdin.setRawMode(true);
+const router = require('./lib/handlers')
+const helpers = require('./lib/helpers')
 
-stdin.resume();
+const config = require('./config')
 
-stdin.setRawMode( true )
+const httpPort = config.httpPort
 
-// i don't want binary, do you?
-stdin.setEncoding( 'utf8' )
-
-// on any data into stdin
-stdin.on( 'data', function( key ){
-    // ctrl-c ( end of text )
-    if ( key === '\u0003' ) {
-        process.exit()
-    }
-    // write the key to stdout all normal like
-    process.stdout.write( key )
-})
-
-let isMoving = false
-let isGoingForward = false
-let isTurning = false
-
-const moveHandlers = {
-  up (speed) {
-    if (!isTurning) {
-      if (isMoving && isGoingForward) {
-        return
+// All thes server logic for both http and https
+const unifiedServer = (req, res) => {
+    // Get the URL and parse it
+    const parsedUrl = url.parse(req.url, true)
+  
+    // Get the path
+    const path = parsedUrl.pathname
+    const trimmedPath = path.replace(/^\/+|\/+$/g, '')
+  
+    // Get the query string as an object
+    const queryStringObject = parsedUrl.query
+  
+    // Get the method
+    const method = req.method.toLowerCase()
+  
+    // Get the headers as an object
+    const headers = req.headers
+  
+    // Get the payload (Comes as a stream)
+    const decoder = new StringDecoder('utf-8')
+    let buffer = ''
+    req.on('data', (data) => {
+      buffer += decoder.write(data)
+    })
+  
+    req.on('end', () => {
+      buffer += decoder.end()
+  
+      // Choose the appropriate handler
+      const chosenHandler = typeof(router[trimmedPath]) !== 'undefined'
+        ? router[trimmedPath]
+        : handlers.notFound
+  
+      // Construct the data object
+      const data = {
+        trimmedPath,
+        queryStringObject,
+        method,
+        headers,
+        payload: helpers.parseJsonToObject(buffer),
       }
-      if (isMoving) {
-        drone.stop()
-        console.log('Stopping')
-        isMoving = false
-        return
-      }
-    }
-    drone.forward(speed)
-    console.log('Going forward')
-    isTurning = false
-    isMoving = true
-    isGoingForward = true
-  },
-  down (speed) {
-    if (!isTurning) {
-      if (isMoving && !isGoingForward) {
-        return
-      }
-      if (isMoving) {
-        drone.stop()
-        console.log('Stopping')
-        isMoving = false
-        isGoingForward = false
-        return
-      }
-    }
-    drone.backward(speed)
-    console.log('Going backward')
-    isTurning = false
-    isMoving = true
-    isGoingForward = false
-  },
-  right (speed) {
-    drone.right(speed)
-    isTurning = true
-    console.log('Turning right')
-  },
-  left (speed) {
-    drone.left(speed)
-    isTurning = true
-    console.log('Turning left')
-  },
+  
+      // Route the request to the chosen handler
+      chosenHandler(data, (statusCode, payload) => {
+        // Use the status code called back by the handler
+        statusCode = typeof(statusCode) === 'number'
+          ? statusCode
+          : 200
+
+        // Use the payload called back by the handler, or default to {}
+        const usedPayload = typeof(payload) === 'object' ? payload : {}
+
+        // Convert the payload to a string
+        const payloadString = JSON.stringify(usedPayload)
+
+        // Send the response
+        res.setHeader('Content-Type', 'application/json')
+        res.writeHead(statusCode)
+        res.end(payloadString)
+
+        // Log the request path
+        console.log('Returning', statusCode, payloadString)
+      })
+    })
 }
 
-// listen for the "keypress" event
-stdin.on('keypress', function (ch, key) {
-  const speed = key.shift ? 80 : 40
-  moveHandlers[key.name](speed)
-});
+// Instantiate HTTP server
+const httpServer = http.createServer(unifiedServer)
 
-drone.connect(function() {
-  drone.postureJumper()
+// Start listen on 3000
+httpServer.listen(httpPort, () => {
+  console.log("Listening on", httpPort)
 })
