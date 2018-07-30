@@ -10,6 +10,7 @@
   "author": "Stanislas Ormières",
   "license": "ISC",
   "dependencies": {
+    "keypress": "^0.2.1",
     "node-sumo": "git+https://github.com/forgeByAcision/node-sumo.git"
   }
 }
