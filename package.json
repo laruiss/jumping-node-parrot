@@ -4,13 +4,49 @@
   "description": "Control parrot jumping with node.js",
   "main": "index.js",
   "scripts": {
+    "lint": "eslint **/*.js",
     "start": "node .",
+    "pretest": "npm run lint",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Stanislas Ormières",
   "license": "ISC",
+  "devDependencies": {
+    "eslint": "^5.3.0",
+    "eslint-config-standard": "^11.0.0",
+    "eslint-plugin-import": "^2.13.0",
+    "eslint-plugin-node": "^7.0.1",
+    "eslint-plugin-promise": "^3.8.0",
+    "eslint-plugin-standard": "^3.1.0"
+  },
   "dependencies": {
     "keypress": "^0.2.1",
     "node-sumo": "git+https://github.com/forgeByAcision/node-sumo.git"
+  },
+  "eslintConfig": {
+    "env": {
+      "browser": true,
+      "jest": true,
+      "node": true
+    },
+    "globals": {
+      "shallow": true,
+      "render": true,
+      "mount": true,
+      "toJson": true
+    },
+    "extends": [
+      "standard"
+    ],
+    "rules": {
+      "jsx-quotes": [
+        2,
+        "prefer-double"
+      ],
+      "comma-dangle": [
+        2,
+        "always-multiline"
+      ]
+    }
   }
 }

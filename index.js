@@ -1,3 +1,5 @@
+process.title = 'node-parrot-jumper'
+const WebSocketServer = require('websocket').server;
 const http = require('http')
 const https = require('https')
 const url = require('url')
@@ -87,3 +89,35 @@ const httpServer = http.createServer(unifiedServer)
 httpServer.listen(httpPort, () => {
   console.log("Listening on", httpPort)
 })
+
+// create the server
+wsServer = new WebSocketServer({
+  httpServer,
+});
+
+// WebSocket server
+wsServer.on('request', function(request) {
+  var connection = request.accept(null, request.origin);
+
+  // This is the most important callback for us, we'll handle
+  // all messages from users here.
+  connection.on('message', function(message) {
+    if (message.type === 'utf8') {
+      // process WebSocket message
+      console.log(message)
+      connection.sendUTF(
+        JSON.stringify({ messageReceived: message }));    }
+  });
+
+  connection.on('close', function(connection) {
+    if (userName !== false && userColor !== false) {
+      console.log((new Date()) + " Peer "
+          + connection.remoteAddress + " disconnected.");
+
+      // remove user from the list of connected clients
+      clients.splice(index, 1);
+      // push back user's color to be reused by another user
+      colors.push(userColor);
+    }
+  });
+});
